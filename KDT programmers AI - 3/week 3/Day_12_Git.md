@@ -13,7 +13,7 @@
 ## ◼ git merge <branch_name>
 > #### branch 병합  
 > <br>  
-> 현재 branch에 이름이 <branch_name>인 branch의 변경사항이 반영됨  
+> 현재 branch에 이름이 <branch_name>인 branch의 변경사항이 반영됨   
 > ※ HEAD-내가 현재 작업중인 branch를 가리킴  
 
 
