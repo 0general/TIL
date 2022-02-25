@@ -1,0 +1,234 @@
+1. 트랜잭션 소개와 실습
+2. 기타 고급 문법 소개와 실습
+
+__________________________________________________
+
+■ 트랜잭션이란?
+
+▷ Atomic하게 실행되어야 하는 SQL들을 묶어서 하나의 작업처럼 처리하는 방법
+  ● 이는 DDL이나 DML 중 레코드를 수정/추가/삭제한 것에만 의미가 있음.
+  ● SELECT에는 트랜잭선을 사용할 이유가 없음
+  ● BEGIN과 END 혿은 BEGIN과 COMMIT 사이에 해당 SQL들을 사용
+  ● ROLLBACK
+
+▷ 은행 계좌 이체가 아주 좋은 예
+  ● 계좌 이체 : 인출과 입금의 두 과정으로 이뤄짐
+  ● 만일 인출은 성공했는데 입금이 실패한다면?
+  ● 이 두 과정은 동시에 성공하든지 실패해야함 → Atomic하다는 의미
+  ● 이런 과정들을 트랜잭션으로 묶어주어야함
+  ● 조회만 한다면 이는 트랜잭션으로 묶일 이유가 없음
+
+
+여러 개의 SQL이 하나의 operation처럼 동작을 해야한다는 말이다.
+
+Atomic할 필요 없는 예시 : 은행 계좌 (읽기만 하는 것이라 하나가 실패한다고 해서 문제가 생기지 않는다.)
+                                    즉, writing하는 경우에만 문제가 생길 수 있다.
+
+
+관계형 데이터베이스를 상태를 바꾸는 SQL이 있는 경우, 반만 성공하고 반은 실패한다면 문제가 생긴다.
+따라서 이렇게 문제가 생길 수 있는 것을 트랜잭션으로 묶어준다.
+
+BEGIN과 END 안의 모든 SQL이 성공하면 다음 상태로 넘어가고, 그렇지 않다면 처음으로 돌아간다.
+
+
+▷
+
+BEGIN;
+    A의 계좌로부터 인출;
+    B의 계좌로 입금;
+END;
+
+------
+A의 계좌로부터 인출;
+B의 계좌로 입금;
+이 두 개의 명령어는 마치 하나의 명령어처럼 처리된다. 
+다 성공하든지 다 실패하든지 둘 중의 하나가 됨.
+------
+
+
+● END와 COMMIT은 동일
+● 만일 BEGIN 전의 상태로 돌아가고 싶다면 ROLLBACK 실행되어야
+
+● 이 동작은 commit mode에 따라 달라진다. (autocommit = True 인지 False인지)
+
+
+
+■ 트랜잭션 커밋 모드 : autocommit
+
+▷ autocommit = True
+ ● 모든 레코드 수정/삭제/추가 작업이 기본적으로 바로 데이터베이스에 쓰여짐. 이를 커밋(Commit)된다고 함.
+ ● 만일 특정 작업을 트랜잭션으로 묶고 싶다면 BEGIN과 END(COMMIT)/ROLLBACK으로 처리
+
+▷ autocommit = False
+ ● 모든 레코드 수정/삭제/추가 작업이 COMMIT 호출될 때까지 커밋되지 않음
+
+
+
+■ 트랜잭션 방식
+
+▷ Google Colab의 트랜잭션
+ ● 기본적으로 모든 SQL statement가 바로 커밋됨 (autocommit = True)
+ ● 이를 바꾸고 싶다면 BEGIN;END; 혹은 BEGIN;COMMIT; 을 사용 (혹은 ROLLBACK;)
+
+▷ psycopg2의 트랜잭션
+ ● autocommit이라는 파라미터로 조절가능
+ ● autocommit = True가 되면 기본적으로 PostgreSQL의 커밋 모드와 동일
+ ● autocommit = False가 되면 커넥션 객체의 .commit()과 .rollback()함수로 트랜잭션 조절 가능
+ ● 무엇을 사용할지는 개인 취향
+
+
+
+■ DELETE FROM vs. TRUNCATE
+
+▷ DELETE FROM table_name (not DELETE * FROM)
+ ● 테이블에서 모든 레코드를 삭제
+ ● vs. DROP TABLE table_name
+ ● WHERE 사용해 특정 레코드만 삭제 가능:
+     - DELETE FROM raw_data.user_session_channel WHERE channel = 'Google'
+
+▷ TRUNCATE table_name 도 테이블에서 모든 레코드를 삭제
+ ● DELETE FROM은 속도가 느림
+ ● TRUNCATE이 전체 테이블의 내용 삭제시에는 여러모로 유리
+ ● 하지만 두 가지 단점이 존재
+   - TRUNCATE는 WHERE을 지원하지 않음
+   - TRUNCATE는 Transaction을 지원하지 않음
+
+
+
+※ TRUNCATE는 내가 ROLLBACK 할 일이 없는데 테이블을 굉장히 빠르게 삭제하고 싶을 경우에만 사용한다.
+                  (ROLLBACK이 안되니까!)
+
+※ DELETE FROM은 시간은 오래 걸리지만 Transaction을 썼다면 ROLLBACK이 가능하다. 
+__________________________________________________
+
+■ 알아두면 유용한 SQL 문법들
+
+▷ UNION, EXCEPT, INTERSECT
+▷ COALESCE, NULLIF
+▷ LISTAGG
+▷ LAG
+▷ WINDOW 함수
+  ● ROW_NUMBER OVER
+  ● SUM OVER
+  ● FIRST_VALUE, LAST_VALUE
+▷ JSON Parsing 함수
+
+
+■ UNION, EXCEPT, INTERSECT
+
+▷ UNION
+  ● 여러 개의 테이블들이나 SELECT 결과를 하나의 결과로 합쳐줌
+  ● UNION(중복 제거) vs. UNION ALL(중복 포함)
+    - UNION 은 중복을 제거
+
+
+▷ EXCEPT (MINUS 를 대신 써도 됨)
+ ● 하나의 SELECT 결과에서 다른 SELECT 결과를 빼주는 것이 가능 (A-B 와 동일)
+
+
+※ UNION과 EXCEPT는 각 SELECT문의 field 수와 타입이 일치해야 에러나지 않는다.
+
+▷ INTERSECT (교집합)
+ ● 하나의 SELECT 결과에서 다른 SELECT 결과를 빼주는 것이 가능
+
+
+
+※ EXCEPT와 INTERSECT는 SQL을 수정했을 때 차이점을 확인하기 위해 많이 사용한다.
+                            새로 만들어낸 SELECT를 변함 정도를 테스트하기 위해 많이 사용한다.
+
+
+■ COALESCE, NULLIF
+
+▷ COALESCE(Expression1, Expression2, ...):
+ ● 첫번째 Expression부터 값이 NULL이 아닌 것이 나오면 그 값을 리턴하고 모두 NULL이면 NULL을 리턴한다.
+ ● NULL 값을 다른 값으로 바꾸고 싶을 때 사용한다.
+
+▷ NULLIF(Expression1, Expression2):
+ ● Expression1과 Expression2의 값이 같으면 NULL을 리턴한다.
+
+
+※ NULL은 어떤 사칙연산을 하든 NULL이다.
+
+
+■ LISTAGG
+▷ GROUP BY에서 사용되는 Aggregate 함수 중의 하나
+▷ 사용자 ID별로 채널을 순서대로 리스트:
+
+SELECT
+    userid,
+    LISTAGG(channel) WITHIN GROUP (ORDER BY ts) channels 
+    -- LISTAGG만 쓰면 random하게 붙이지만 WITHIN GROUP (ORDER BY ts) channels을 붙이면 순서대로 붙인다. 
+FROM raw_data.user_session_channel usc
+JOIN raw_data.seseion_timestamp st ON usc.sessionid = st.sessionid
+GROUP BY 1 -- userid 기준 GROUP BEGIN
+LIMIT 10;
+
+사용자별로 이 사람이 방문했던 channel들을 시간 순으로 보고싶다.
+
+LISTAGG는 group 안에서 특정 field의 값을 쭉 붙여준다.
+LIST 리스트 형태로 반환
+
+※ LISTAGG 함수 안에서 구분자를 지정할 수도 있다.
+                       ↓
+SELECT
+    userid,
+    LSTAGEE(channel, '->') WITHIN GROUP (ORDER BY ts) channels
+FROM raw_data.user_session_channel usc
+JOIN raw_data.seseion_timestamp st ON usc.sessionid = st.sessionid
+GROUP BY 1
+LIMIT 10;
+
+
+
+
+■ WINDOW 함수
+
+▷ Syntax:
+  ● function(expression) OVER ([PARTITION BY expression] [ORDER BY expression])
+▷ Useful functions :
+  ● ROW_NUMBER, FIRST_VALUE, LAST_VALUE, LAG
+  ● Math functions : AVG, SUM, COUNT, MAX, MIN, MEDIAN, NTH_VALUE 
+
+▶ WINDOW - LAG
+▷ 어떤 사용자 세션에서 시간순으로 봤을 때
+  ● 앞(previous) 세션의 채널이 무엇인지 알고 싶다면?
+  ● 혹은 다음 세션의 채널이 무엇인지 알고 싶다면?
+
+-- 이전 채널 찾기
+SELECT usc.*, st.ts,
+   LAG(channel, 1) OVER (PARTITION BY userId ORDER BY ts) prev_channel -- LAG(channel, n)라면 'n개 앞에' 라는 뜻.
+FROM raw_data.user_session_channel usc
+JOIN raw_data.session_timestamp st ON usc.sessionid = st.sessionid
+ORDER BY usc.userid, st.ts
+
+-- 다음 채널을 찾으려면? DESC를 붙여준다.
+
+SELECT usc.*, st.ts,
+   LAG(channel, 1) OVER (PARTITION BY userId ORDER BY ts DESC) prev_channel 
+FROM raw_data.user_session_channel usc
+JOIN raw_data.session_timestamp st ON usc.sessionid = st.sessionid
+ORDER BY usc.userid, st.ts
+
+
+■ JSON Parsing 함수
+▷ JSON의 포맷을 이미 아는 상황에서만 사용가능한 함수
+  ● JSON String을 입력으로 받아 특정 필드의 값을 추출가능 (nested 구조 지원)
+
+▷ 예제) JSON_EXTRACT_PATH_TEXT
+  ● SELECT JSON_EXTRACT_PATH_TEXT('{"f2":{"f3":"1"}, "f4":{"f5":"99","f6":"star"}},'f4','f6'); -- JSON안의 'f4'안에 'f6' 값 반환
+
+  {
+    "f2":{
+      "f3":"1"
+    },
+    "f4":{
+      "f5":"99,
+      "f6":"star"
+    }
+  }
+
+
+
+구조를 알고있다면 유용하지만 그렇지 않다면 유용성이 많이 떨어진다.
+
+
